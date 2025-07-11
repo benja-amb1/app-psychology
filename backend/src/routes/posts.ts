@@ -46,7 +46,7 @@ const router = express.Router();
 
 router.post('/create-post', upload.single('image'), isAuthenticated, checkRole('admin'), addPost);
 router.post('/add-comment/:postId', isAuthenticated, addComment);
-router.post('/toggle-likes/:postId', isAuthenticated, toggleLikes);
+router.post('/toggle-like/:postId', isAuthenticated, toggleLikes);
 
 
 router.get('/get-posts', getAllPosts);

@@ -14,7 +14,7 @@ const createUserWithRole = (role: string) => async (req: Request, res: Response)
   try {
     const { name, surname, email, password } = req.body;
 
-    if (!name || !surname || !email || !password) {
+    if (!name || !surname || !email || !password || !v.isEmail(email)) {
       res.status(400).json({ status: false, message: "All fields are required." });
       return
     }
@@ -31,13 +31,13 @@ const createUserWithRole = (role: string) => async (req: Request, res: Response)
       name: cleanInputs(name),
       surname: cleanInputs(surname),
       email: cleanInputs(email),
-      password: cleanInputs(hashed),
+      password: hashed,
       role
     });
 
     await user.save();
 
-    res.status(201).json({ status: true, message: `User with role ${role} created.` });
+    res.status(201).json({ status: true, message: `User created.` });
   } catch (error) {
     res.status(500).json({ status: false, message: "Server error." });
   }
@@ -48,11 +48,12 @@ export const createAdmin = createUserWithRole('admin');
 export const createSemiAdmin = createUserWithRole('semiadmin');
 
 export const updateUser = async (req: UserReq, res: Response): Promise<any> => {
+
   try {
     const { id } = req.params;
     const { name, surname, email, password } = req.body;
 
-    if (!name || !surname || !email || !password) {
+    if (!name || !surname || !email || !password || !v.isEmail(email)) {
       return res.status(400).json({ status: false, message: "All fields are required." });
     }
 
@@ -61,9 +62,10 @@ export const updateUser = async (req: UserReq, res: Response): Promise<any> => {
       return;
     }
 
-    if (req.user?.id.toString() !== id) {
-      res.status(404).json({ status: false, message: "You can't update this user." });
-      return;
+
+
+    if (!req.user || !req.user.id || req.user.id.toString() !== id) {
+      return res.status(403).json({ status: false, message: "You can't update this user." });
     }
 
     const emailExists = User.findOne({ id, $ne: email });
@@ -79,8 +81,8 @@ export const updateUser = async (req: UserReq, res: Response): Promise<any> => {
       name: cleanInputs(name),
       surname: cleanInputs(surname),
       email: cleanInputs(email),
-      password: cleanInputs(hashed),
-    }, { new: true });
+      password: hashed,
+    }, { new: true }).select('-password');
 
     if (!user) {
       res.status(404).json({ status: false, message: "User not found." });
@@ -133,7 +135,7 @@ export const getUser = async (req: Request, res: Response): Promise<any> => {
       return;
     }
 
-    const user = await User.findById(id);
+    const user = await User.findById(id).select('-password');
     if (!user) {
       res.status(404).json({ status: false, message: "User not found" });
       return;
@@ -149,7 +151,7 @@ export const getUser = async (req: Request, res: Response): Promise<any> => {
 
 export const getAllUsers = async (req: Request, res: Response): Promise<any> => {
   try {
-    const users = await User.find();
+    const users = await User.find().select('-password');
 
     if (!users) {
       res.status(404).json({ status: false, message: "Users not found." });
@@ -181,13 +183,14 @@ export const login = async (req: Request, res: Response): Promise<any> => {
       return res.status(404).json({ status: false, message: "User not found." });
     }
 
-    const match = await bcrypt.compare(cleanPassword, user.password);
+    const match = await bcrypt.compare(password, user.password);
     if (!match) {
       res.status(401).json({ status: false, message: "Invalid password." });
       return;
     }
 
     const payload = {
+      id: user._id,
       name: user.name,
       surname: user.surname,
       email: user.email,

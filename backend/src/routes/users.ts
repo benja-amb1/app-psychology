@@ -18,3 +18,5 @@ router.post('/logout', isAuthenticated, logout);
 router.put('/update-user/:id', isAuthenticated, updateUser)
 
 router.delete('/delete-user/:id', isAuthenticated, deleteUser);
+
+export default router

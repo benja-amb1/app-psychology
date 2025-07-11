@@ -4,6 +4,8 @@ import Post from '../models/posts'
 import Comment from '../models/comments'
 import v from 'validator'
 import { UserReq } from "../interfaces/UserReq";
+import fs from 'fs';
+import path from 'path'
 
 export interface FileRequest extends Request {
   file?: Express.Multer.File;
@@ -59,6 +61,7 @@ export const deletePost = async (req: UserReq, res: Response): Promise<any> => {
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ status: false, message: "Invalid post ID." });
     }
+
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ status: false, message: "You are not authorized to delete this post." });
     }
@@ -69,6 +72,12 @@ export const deletePost = async (req: UserReq, res: Response): Promise<any> => {
       return res.status(404).json({ status: false, message: "Post not found." });
     }
 
+    // delete image associated
+    const imagePath = path.join(__dirname, '..', '..', 'uploads', deletedPost.image);
+    fs.unlink(imagePath, (err) => {
+      if (err) console.error('Error deleting image file:', err);
+    });
+
     return res.status(200).json({ status: true, message: "Post deleted successfully." });
 
   } catch (error) {
@@ -77,10 +86,11 @@ export const deletePost = async (req: UserReq, res: Response): Promise<any> => {
   }
 };
 
+
 export const updatePost = async (req: UserReq, res: Response): Promise<any> => {
   try {
     const { title, subtitle, description, content, year } = req.body;
-    const image = req.file?.filename
+    const image = req.file?.filename;
     const { id } = req.params;
 
     if (!title || !subtitle || !description || !content || !year) {
@@ -95,32 +105,36 @@ export const updatePost = async (req: UserReq, res: Response): Promise<any> => {
       return res.status(403).json({ status: false, message: "You are not authorized to update this post." });
     }
 
-    if (!image) {
-      res.status(404).json({ status: false, message: "Image  is required." });
-      return;
+    const existingPost = await Post.findById(id);
+    if (!existingPost) {
+      return res.status(404).json({ status: false, message: "Post not found." });
     }
 
-    const cleanTitle = cleanInputs(title);
-    const cleanSubtitle = cleanInputs(subtitle);
-    const cleanDescription = cleanInputs(description);
-    const cleanContent = cleanInputs(content);
-    const cleanYear = cleanInputs(year);
+    // delete img if there's another new
+    if (image && existingPost.image) {
+      const oldImagePath = path.join(__dirname, '..', '..', 'uploads', existingPost.image);
+      fs.unlink(oldImagePath, (err) => {
+        if (err) {
+          console.error('Error deleting old image:', err);
+        }
+      });
+    }
 
     const postUpdated = await Post.findByIdAndUpdate(
       id,
       {
-        title: cleanTitle,
-        subtitle: cleanSubtitle,
-        description: cleanDescription,
-        content: cleanContent,
-        year: cleanYear,
-        image: image
+        title: cleanInputs(title),
+        subtitle: cleanInputs(subtitle),
+        description: cleanInputs(description),
+        content: cleanInputs(content),
+        year: cleanInputs(year),
+        image: image || existingPost.image, // keep old image if new one not provided
       },
       { new: true }
     );
 
     if (!postUpdated) {
-      return res.status(404).json({ status: false, message: "Post not found." });
+      return res.status(404).json({ status: false, message: "Post not found after update." });
     }
 
     return res.status(200).json({ status: true, data: postUpdated });

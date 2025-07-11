@@ -3,6 +3,8 @@ import cors from 'cors'
 import cookiesParser from 'cookie-parser'
 import mongoose from 'mongoose'
 import dotenv from 'dotenv'
+import UserRoutes from './routes/users';
+import PostsRoutes from './routes/posts';
 
 dotenv.config();
 
@@ -10,10 +12,14 @@ const app = express();
 const PORT = process.env.PORT ?? 1234
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 app.use(cookiesParser());
 
 app.use('/uploads', express.static('uploads')); //acceder a uploads
+
+app.use('/users', UserRoutes);
+app.use('/posts', PostsRoutes);
 
 const connection = async () => {
   try {

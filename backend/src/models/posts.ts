@@ -4,6 +4,7 @@ interface PostInterface {
   title: string;
   subtitle: string;
   description: string;
+  image: string;
   content: string;
   year: string;
   comments: Types.ObjectId[];
@@ -15,6 +16,7 @@ const PostSchema = new Schema<PostInterface>(
     title: { type: String, required: true },
     subtitle: { type: String, required: true },
     description: { type: String, required: true },
+    image: { type: String, required: true },
     content: { type: String, required: true },
     year: { type: String, required: true },
     comments: [{ type: Types.ObjectId, ref: 'User' }],

@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Post from '../models/posts'
+import Comment from '../models/comments'
 import v from 'validator'
 import { UserReq } from "../interfaces/UserReq";
 
@@ -12,9 +13,15 @@ const cleanInputs = (field: string) => {
 export const addPost = async (req: Request, res: Response): Promise<any> => {
   try {
     const { title, subtitle, description, content, year } = req.body;
+    const image = req.file?.filename
 
     if (!title || !subtitle || !description || !content || !year) {
       return res.status(400).json({ status: false, message: "All fields are required." });
+    }
+
+    if (!image) {
+      res.status(400).json({ status: false, message: "Image is required." });
+      return
     }
 
     const cleanTitle = cleanInputs(title);
@@ -28,7 +35,8 @@ export const addPost = async (req: Request, res: Response): Promise<any> => {
       subtitle: cleanSubtitle,
       description: cleanDescription,
       content: cleanContent,
-      year: cleanYear
+      year: cleanYear,
+      image: image
     });
 
     await post.save();
@@ -69,6 +77,7 @@ export const deletePost = async (req: UserReq, res: Response): Promise<any> => {
 export const updatePost = async (req: UserReq, res: Response): Promise<any> => {
   try {
     const { title, subtitle, description, content, year } = req.body;
+    const image = req.file?.filename
     const { id } = req.params;
 
     if (!title || !subtitle || !description || !content || !year) {
@@ -81,6 +90,11 @@ export const updatePost = async (req: UserReq, res: Response): Promise<any> => {
 
     if (!req.user || req.user.role !== 'admin') {
       return res.status(403).json({ status: false, message: "You are not authorized to update this post." });
+    }
+
+    if (!image) {
+      res.status(404).json({ status: false, message: "Image  is required." });
+      return;
     }
 
     const cleanTitle = cleanInputs(title);
@@ -96,7 +110,8 @@ export const updatePost = async (req: UserReq, res: Response): Promise<any> => {
         subtitle: cleanSubtitle,
         description: cleanDescription,
         content: cleanContent,
-        year: cleanYear
+        year: cleanYear,
+        image: image
       },
       { new: true }
     );
@@ -158,31 +173,62 @@ export const addComment = async (req: UserReq, res: Response): Promise<any> => {
     const { comment } = req.body;
     const userId = req.user?.id;
 
-    if (!userId) {
-      res.status(401).json({ status: false, message: "Unauthorized" });
-      return
-    }
-
     if (!mongoose.Types.ObjectId.isValid(postId)) {
-      res.status(404).json({ status: false, message: "Invalid ID" });
-      return;
+      return res.status(400).json({ status: false, message: "Invalid post ID." });
     }
 
     if (!comment) {
-      res.status(400).json({ status: false, message: "The field is required." });
-      return;
+      return res.status(400).json({ status: false, message: "Comment is required." });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ status: false, message: "Unauthorized." });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ status: false, message: "Post not found." });
     }
 
     const cleanComment = cleanInputs(comment);
 
-    res.status(201).json({ status: true, message: "Comment created successfully.", data: cleanComment });
+    const newComment = new Comment({
+      postId,
+      userId,
+      comment: cleanComment
+    });
 
+    await newComment.save();
 
+    return res.status(201).json({
+      status: true,
+      message: "Comment added successfully.",
+      data: newComment
+    });
   } catch (error) {
-    res.status(500).json({ status: false, message: "Server error." });
-    console.log(error);
+    console.error(error);
+    return res.status(500).json({ status: false, message: "Server error." });
   }
-}
+};
+
+export const getCommentsByPost = async (req: Request, res: Response): Promise<any> => {
+  try {
+    const { postId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(400).json({ status: false, message: "Invalid post ID." });
+    }
+
+    const comments = await Comment.find({ postId })
+      .populate("userId", "name surname") // show the name and surname
+      .sort({ createdAt: -1 }); // recents firsts
+
+    return res.status(200).json({ status: true, data: comments });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ status: false, message: "Server error." });
+  }
+};
 
 export const toggleLikes = async (req: UserReq, res: Response): Promise<any> => {
   try {

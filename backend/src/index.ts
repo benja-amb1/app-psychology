@@ -13,6 +13,8 @@ app.use(express.json());
 app.use(cors());
 app.use(cookiesParser());
 
+app.use('/uploads', express.static('uploads')); //acceder a uploads
+
 const connection = async () => {
   try {
     mongoose.connect(process.env.MONGO_URI as string);

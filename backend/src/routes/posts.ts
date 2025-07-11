@@ -11,6 +11,8 @@ import {
   toggleLikes,
   updatePost
 } from '../controllers/posts';
+import { isAuthenticated } from '../middlewares/isAuthenticated';
+import { checkRole } from '../middlewares/checkRole';
 
 // MULTER config
 const storage = multer.diskStorage({
@@ -38,21 +40,20 @@ const upload = multer({
   limits: { fileSize: 5 * 1024 * 1024 } // 5MB
 });
 
-// Router
+// Routes
 const router = express.Router();
 
-// POST routes
-router.post('/create-post', upload.single('image'), addPost);
-router.post('/add-comment/:postId', addComment);
-router.post('/toggle-likes/:postId', toggleLikes);
 
-// GET routes
+router.post('/create-post', upload.single('image'), isAuthenticated, checkRole('admin'), addPost);
+router.post('/add-comment/:postId', isAuthenticated, addComment);
+router.post('/toggle-likes/:postId', isAuthenticated, toggleLikes);
+
+
 router.get('/get-posts', getAllPosts);
 router.get('/get-post/:id', getPost);
 router.get('/get-comment/:postId', getCommentsByPost);
 
-// PUT/DELETE
-router.put('/update-post/:id', upload.single('image'), updatePost);
-router.delete('/delete-post/:id', deletePost);
+router.put('/update-post/:id', upload.single('image'), isAuthenticated, checkRole('admin'), updatePost);
+router.delete('/delete-post/:id', isAuthenticated, checkRole('admin'), deletePost);
 
 export default router;

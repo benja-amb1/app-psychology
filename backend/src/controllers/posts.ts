@@ -66,14 +66,52 @@ export const deletePost = async (req: UserReq, res: Response): Promise<any> => {
   }
 };
 
-export const updatePost = async (req: Request, res: Response): Promise<any> => {
+export const updatePost = async (req: UserReq, res: Response): Promise<any> => {
   try {
+    const { title, subtitle, description, content, year } = req.body;
+    const { id } = req.params;
+
+    if (!title || !subtitle || !description || !content || !year) {
+      return res.status(400).json({ status: false, message: "All fields are required." });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ status: false, message: "Invalid post ID." });
+    }
+
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ status: false, message: "You are not authorized to update this post." });
+    }
+
+    const cleanTitle = cleanInputs(title);
+    const cleanSubtitle = cleanInputs(subtitle);
+    const cleanDescription = cleanInputs(description);
+    const cleanContent = cleanInputs(content);
+    const cleanYear = cleanInputs(year);
+
+    const postUpdated = await Post.findByIdAndUpdate(
+      id,
+      {
+        title: cleanTitle,
+        subtitle: cleanSubtitle,
+        description: cleanDescription,
+        content: cleanContent,
+        year: cleanYear
+      },
+      { new: true }
+    );
+
+    if (!postUpdated) {
+      return res.status(404).json({ status: false, message: "Post not found." });
+    }
+
+    return res.status(200).json({ status: true, data: postUpdated });
 
   } catch (error) {
-    res.status(500).json({ status: false, message: "Server error." });
-    console.log(error);
+    console.error(error);
+    return res.status(500).json({ status: false, message: "Server error." });
   }
-}
+};
 
 export const getPost = async (req: Request, res: Response): Promise<any> => {
   try {

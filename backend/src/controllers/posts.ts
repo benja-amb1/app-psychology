@@ -5,6 +5,9 @@ import Comment from '../models/comments'
 import v from 'validator'
 import { UserReq } from "../interfaces/UserReq";
 
+export interface FileRequest extends Request {
+  file?: Express.Multer.File;
+}
 
 const cleanInputs = (field: string) => {
   return v.escape(field.trim());

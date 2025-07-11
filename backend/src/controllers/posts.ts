@@ -152,10 +152,16 @@ export const getAllPosts = async (req: Request, res: Response): Promise<any> => 
   }
 }
 
-export const addComment = async (req: Request, res: Response): Promise<any> => {
+export const addComment = async (req: UserReq, res: Response): Promise<any> => {
   try {
     const { postId } = req.params;
     const { comment } = req.body;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      res.status(401).json({ status: false, message: "Unauthorized" });
+      return
+    }
 
     if (!mongoose.Types.ObjectId.isValid(postId)) {
       res.status(404).json({ status: false, message: "Invalid ID" });
@@ -184,16 +190,19 @@ export const toggleLikes = async (req: UserReq, res: Response): Promise<any> => 
     const userId = req.user?.id;
 
     if (!mongoose.Types.ObjectId.isValid(postId)) {
-      return res.status(404).json({ status: false, message: "Invalid ID" });
+      res.status(404).json({ status: false, message: "Invalid ID" });
+      return
     }
 
     if (!userId) {
-      return res.status(401).json({ status: false, message: "Unauthorized" });
+      res.status(401).json({ status: false, message: "Unauthorized" });
+      return
     }
 
     const post = await Post.findById(postId);
     if (!post) {
-      return res.status(404).json({ status: false, message: "Post not found" });
+      res.status(404).json({ status: false, message: "Post not found" });
+      return
     }
 
     const userIndex = post.likes.findIndex((id) => id.equals(userId));

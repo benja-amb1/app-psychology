@@ -115,6 +115,20 @@ export const updatePost = async (req: UserReq, res: Response): Promise<any> => {
 
 export const getPost = async (req: Request, res: Response): Promise<any> => {
   try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ status: false, message: "Invalid post ID." });
+    }
+
+    const post = await Post.findById(id);
+
+    if (!post) {
+      res.status(404).json({ status: false, message: "Post not found." });
+      return;
+    }
+
+    res.status(200).json({ status: true, data: post });
 
   } catch (error) {
     res.status(500).json({ status: false, message: "Server error." });
@@ -124,6 +138,13 @@ export const getPost = async (req: Request, res: Response): Promise<any> => {
 
 export const getAllPosts = async (req: Request, res: Response): Promise<any> => {
   try {
+    const posts = await Post.find();
+    if (!posts) {
+      res.status(404).json({ status: false, message: "Posts not found" });
+      return;
+    }
+
+    res.status(200).json({ status: true, data: posts });
 
   } catch (error) {
     res.status(500).json({ status: false, message: "Server error." });
@@ -133,6 +154,23 @@ export const getAllPosts = async (req: Request, res: Response): Promise<any> => 
 
 export const addComment = async (req: Request, res: Response): Promise<any> => {
   try {
+    const { postId } = req.params;
+    const { comment } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      res.status(404).json({ status: false, message: "Invalid ID" });
+      return;
+    }
+
+    if (!comment) {
+      res.status(400).json({ status: false, message: "The field is required." });
+      return;
+    }
+
+    const cleanComment = cleanInputs(comment);
+
+    res.status(201).json({ status: true, message: "Comment created successfully.", data: cleanComment });
+
 
   } catch (error) {
     res.status(500).json({ status: false, message: "Server error." });
@@ -140,11 +178,43 @@ export const addComment = async (req: Request, res: Response): Promise<any> => {
   }
 }
 
-export const toggleLikes = async (req: Request, res: Response): Promise<any> => {
+export const toggleLikes = async (req: UserReq, res: Response): Promise<any> => {
   try {
+    const { postId } = req.params;
+    const userId = req.user?.id;
 
+    if (!mongoose.Types.ObjectId.isValid(postId)) {
+      return res.status(404).json({ status: false, message: "Invalid ID" });
+    }
+
+    if (!userId) {
+      return res.status(401).json({ status: false, message: "Unauthorized" });
+    }
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ status: false, message: "Post not found" });
+    }
+
+    const userIndex = post.likes.findIndex((id) => id.equals(userId));
+
+    if (userIndex > -1) {
+      // quitar like si el usuario ya le dio like
+      post.likes.splice(userIndex, 1);
+    } else {
+      // agregar like si el usuario NO dio like
+      post.likes.push(userId);
+    }
+
+    await post.save();
+
+    res.status(200).json({
+      status: true,
+      message: userIndex > -1 ? "Like removed" : "Like added",
+      likesCount: post.likes.length,
+    });
   } catch (error) {
-    res.status(500).json({ status: false, message: "Server error." });
     console.log(error);
+    res.status(500).json({ status: false, message: "Server error." });
   }
-}
+};

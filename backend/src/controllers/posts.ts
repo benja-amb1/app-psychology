@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import mongoose from "mongoose";
 import Post from '../models/posts'
 import v from 'validator'
+import { UserReq } from "../interfaces/UserReq";
 
 
 const cleanInputs = (field: string) => {
@@ -40,14 +41,30 @@ export const addPost = async (req: Request, res: Response): Promise<any> => {
   }
 };
 
-export const deletePost = async (req: Request, res: Response): Promise<any> => {
+export const deletePost = async (req: UserReq, res: Response): Promise<any> => {
   try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ status: false, message: "Invalid post ID." });
+    }
+    if (!req.user || req.user.role !== 'admin') {
+      return res.status(403).json({ status: false, message: "You are not authorized to delete this post." });
+    }
+
+    const deletedPost = await Post.findByIdAndDelete(id);
+
+    if (!deletedPost) {
+      return res.status(404).json({ status: false, message: "Post not found." });
+    }
+
+    return res.status(200).json({ status: true, message: "Post deleted successfully." });
 
   } catch (error) {
-    res.status(500).json({ status: false, message: "Server error." });
-    console.log(error);
+    console.error(error);
+    return res.status(500).json({ status: false, message: "Server error." });
   }
-}
+};
 
 export const updatePost = async (req: Request, res: Response): Promise<any> => {
   try {
